@@ -13,8 +13,9 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "CloudBoard",
-  description: "Personal project and task management",
+  title: "CloudBoard: Personal projects and tasks, organized",
+  description:
+    "CloudBoard keeps your personal projects and their tasks in one place, so you always know what's next, what's in progress and what's done.",
 };
 
 export default function RootLayout({
