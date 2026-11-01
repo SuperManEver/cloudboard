@@ -1,5 +1,5 @@
-import { defineBackend } from '@aws-amplify/backend';
-import { auth } from './auth/resource';
+import { defineBackend } from "@aws-amplify/backend";
+import { auth } from "./auth/resource";
 
 /**
  * @see https://docs.amplify.aws/nextjs/build-a-backend/ to add storage, functions, and more
@@ -11,5 +11,4 @@ const backend = defineBackend({
 });
 
 // No guest (unauthenticated) AWS credentials from the identity pool.
-backend.auth.resources.cfnResources.cfnIdentityPool.allowUnauthenticatedIdentities =
-  false;
+backend.auth.resources.cfnResources.cfnIdentityPool.allowUnauthenticatedIdentities = false;

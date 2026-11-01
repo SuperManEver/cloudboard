@@ -6,13 +6,14 @@ The app is built in phases. **Phase 1 (current)** sets up the foundation only: n
 
 ## Tech stack
 
-| Area           | Technology                                         |
-| -------------- | -------------------------------------------------- |
-| Runtime        | Node.js 24 (via NVM), npm                          |
-| Frontend       | Next.js 15 (App Router), React 19, TypeScript (strict) |
-| Styling        | Tailwind CSS 4                                     |
-| Backend        | AWS Amplify Gen 2 (TypeScript, built on AWS CDK)   |
-| Linting        | ESLint 9 (`eslint-config-next`)                    |
+| Area     | Technology                                             |
+| -------- | ------------------------------------------------------ |
+| Runtime  | Node.js 24 (via NVM), npm                              |
+| Frontend | Next.js 15 (App Router), React 19, TypeScript (strict) |
+| Styling  | Tailwind CSS 4                                         |
+| Backend  | AWS Amplify Gen 2 (TypeScript, built on AWS CDK)       |
+| Linting  | ESLint 9 (`eslint-config-next`)                        |
+| Format   | Prettier 3 (default options)                           |
 
 ## Prerequisites
 
@@ -43,9 +44,11 @@ Open http://localhost:3000. The frontend runs locally without AWS until it needs
 ## Quality checks
 
 ```bash
-npm run lint       # ESLint
-npm run typecheck  # tsc --noEmit
-npm run build      # production build
+npm run lint          # ESLint
+npm run format:check  # Prettier, check only
+npm run format        # Prettier, rewrite files
+npm run typecheck     # tsc --noEmit
+npm run build         # production build
 ```
 
 ## Project structure

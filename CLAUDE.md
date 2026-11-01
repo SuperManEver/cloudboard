@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 CloudBoard is a learning-oriented, production-structured SaaS app for managing personal projects and tasks. The main goal is hands-on experience with AWS: Amplify Gen 2, Cognito, DynamoDB, Lambda, API Gateway, and CDK. It is built in phases, and each phase is scoped tightly. Don't implement features from later phases (see README "Roadmap"). Avoid adding dependencies, UI libraries, state-management frameworks or abstractions that the current phase doesn't need.
 
-Stack: Node 24 (`.nvmrc`; `engines` is `>=24 <25`), npm, Next.js 15 App Router, React 19, TypeScript strict, Tailwind CSS 4 (CSS-first config in `src/app/globals.css`, no `tailwind.config`), ESLint 9 flat config, Amplify Gen 2.
+Stack: Node 24 (`.nvmrc`; `engines` is `>=24 <25`), npm, Next.js 15 App Router, React 19, TypeScript strict, Tailwind CSS 4 (CSS-first config in `src/app/globals.css`, no `tailwind.config`), ESLint 9 flat config, Prettier 3 (default options; `eslint-config-prettier` disables conflicting ESLint rules), Amplify Gen 2.
 
 ## Commands
 
@@ -16,6 +16,7 @@ Run `nvm use` first. The machine's nvm default is Node 20, so commands fail or b
 npm run dev         # Next.js dev server
 npm run build       # production build (also runs lint + type check)
 npm run lint        # eslint
+npm run format      # prettier --write . (format:check for CI-style check)
 npm run typecheck   # tsc --noEmit
 npx ampx sandbox --profile <profile>   # deploy per-developer cloud sandbox and watch amplify/
 npx ampx sandbox delete --profile <profile>

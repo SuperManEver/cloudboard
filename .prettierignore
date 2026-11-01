@@ -1,0 +1,12 @@
+# Generated / build output
+.next/
+out/
+build/
+coverage/
+.amplify/
+amplify_outputs*
+next-env.d.ts
+*.tsbuildinfo
+
+# Lockfile is managed by npm
+package-lock.json
