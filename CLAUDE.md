@@ -18,8 +18,8 @@ npm run build       # production build (also runs lint + type check)
 npm run lint        # eslint
 npm run format      # prettier --write . (format:check for CI-style check)
 npm run typecheck   # tsc --noEmit
-npx ampx sandbox --profile <profile>   # deploy per-developer cloud sandbox and watch amplify/
-npx ampx sandbox delete --profile <profile>
+npx ampx sandbox --profile default     # deploy per-developer cloud sandbox and watch amplify/
+npx ampx sandbox delete --profile default
 ```
 
 There is no test suite yet.
@@ -44,8 +44,8 @@ There is no test suite yet.
 ## AWS constraints
 
 - The sandbox is not an emulator. `ampx sandbox` creates real, billable resources. Get explicit user approval and verify the account and region (`aws sts get-caller-identity`) before running anything that creates or changes AWS resources. Never delete a sandbox without approval.
-- Use IAM Identity Center (SSO) profiles. Never the root account, never create IAM users or access keys.
-- The user's shell may set `AWS_PROFILE` to a read-only org profile that can't deploy. Always pass `--profile` explicitly.
+- Deploy with the `default` profile: a non-root IAM user signed in via `aws login` (short-lived console credentials), region us-east-1. Never use the root account, never create access keys, and don't create additional IAM users. If credentials have expired, ask the user to run `aws login --profile default`.
+- The user's shell may set `AWS_PROFILE` to a read-only org profile that can't deploy. Always pass `--profile default` explicitly.
 - OAuth client secrets (Phase 2: Google via Cognito) go in `npx ampx sandbox secret set`, never in the repo.
 
 ## Known dependency notes

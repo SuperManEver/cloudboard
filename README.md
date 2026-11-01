@@ -19,7 +19,7 @@ The app is built in phases. **Phase 1 (current)** sets up the foundation only: n
 
 - [NVM](https://github.com/nvm-sh/nvm)
 - AWS CLI v2. You only need it for the cloud sandbox.
-- An AWS account you're allowed to deploy to, with an IAM Identity Center (SSO) profile. Don't use the root account or long-lived access keys. See [AWS profile](#aws-profile-iam-identity-center).
+- An AWS account you're allowed to deploy to, signed in with `aws login` as a non-root IAM user. Don't use the root account or long-lived access keys. See [AWS profile](#aws-profile).
 
 ## Setup
 
@@ -40,6 +40,37 @@ npm run dev
 ```
 
 Open http://localhost:3000. The frontend runs locally without AWS until it needs backend resources (Phase 2 onwards).
+
+### Day-to-day workflow
+
+The Next.js dev server runs locally, while the backend runs in your [cloud sandbox](#cloud-sandbox). You only need the sandbox watcher running when you're changing the backend.
+
+**Working on the backend (`amplify/`):** use two terminals.
+
+```bash
+# Terminal 1: redeploys the sandbox on every change in amplify/
+nvm use
+npx ampx sandbox --profile default
+
+# Terminal 2: frontend with hot reload
+nvm use
+npm run dev
+```
+
+After each redeploy the sandbox rewrites `amplify_outputs.json`, and the dev server picks up the change.
+
+**Working on the frontend only:** run just `npm run dev`. Stopping the sandbox watcher (`Ctrl+C`) leaves the deployed resources and `amplify_outputs.json` in place, so the app keeps using the same backend.
+
+Start the sandbox again when:
+
+- you change anything in `amplify/`;
+- you pull or check out backend changes;
+- `amplify_outputs.json` is missing (fresh clone or new machine).
+
+Things to watch:
+
+- **Region:** the sandbox deploys to the region of the profile you pass. If the profile has no region or the wrong one, set it with `aws configure set region us-east-1 --profile default`, or prefix a single command with `AWS_REGION=us-east-1`. The sandbox banner shows the region it's using.
+- **Expired session:** when the sandbox fails with a credentials error, run `aws login --profile default` and start it again.
 
 ## Quality checks
 
@@ -81,19 +112,19 @@ Conventions:
 - **Auth:** `defineAuth` with the default email login. This is scaffolding only: no sign-in UI and no custom configuration. Guest (unauthenticated) identities in the Cognito identity pool are disabled in `backend.ts`.
 - **Data:** the initializer's sample `Todo` model let any unauthenticated user create, read, update and delete records, so it was removed. `defineData` needs at least one model, so `data` isn't registered in `backend.ts` yet. The real models will come with owner-based authorization.
 
-## AWS profile (IAM Identity Center)
+## AWS profile
 
-Amplify deploys with your local AWS credentials. Use an SSO profile:
+Amplify deploys with your local AWS credentials. This project uses the `default` profile, signed in with `aws login` as a non-root IAM user (console credentials). `aws login` issues short-lived credentials, so no access keys are stored on disk.
 
 ```bash
-aws configure sso                       # one-time: create a profile, e.g. "cloudboard-dev"
-aws sso login --profile cloudboard-dev  # refresh the session when it expires
-aws sts get-caller-identity --profile cloudboard-dev   # check account and role
+aws login --profile default                        # sign in; run again when the session expires
+aws configure set region us-east-1 --profile default
+aws sts get-caller-identity --profile default      # check account and user
 ```
 
-The role needs permission to deploy CloudFormation stacks and create the resources they define, including IAM roles. Amplify's documentation recommends the `AmplifyBackendDeployFullAccess` managed policy. A read-only or service-specific role is not enough.
+The user needs permission to deploy CloudFormation stacks and create the resources they define, including IAM roles. Amplify's documentation recommends the `AmplifyBackendDeployFullAccess` managed policy. A read-only or service-specific role is not enough.
 
-If `AWS_PROFILE` is set in your shell, it takes priority. Override it per command, or pass `--profile`.
+Always pass `--profile default` explicitly. If `AWS_PROFILE` is set in your shell (for example to another organization's read-only profile), it would otherwise take priority.
 
 ## Cloud sandbox
 
@@ -102,7 +133,7 @@ If `AWS_PROFILE` is set in your shell, it takes priority. Override it per comman
 The first deployment to an account/region may ask you to bootstrap CDK. The CLI links to the console flow for this.
 
 ```bash
-npx ampx sandbox --profile cloudboard-dev
+npx ampx sandbox --profile default
 ```
 
 This deploys a per-developer stack (`amplify-cloudboard-<user>-sandbox-<hash>`), watches `amplify/` for changes and redeploys them, and writes `amplify_outputs.json` to the project root. That file is git-ignored. The frontend reads it from Phase 2 onwards.
@@ -110,7 +141,7 @@ This deploys a per-developer stack (`amplify-cloudboard-<user>-sandbox-<hash>`),
 Verify the stack:
 
 ```bash
-aws cloudformation list-stacks --profile cloudboard-dev \
+aws cloudformation list-stacks --profile default \
   --stack-status-filter CREATE_COMPLETE UPDATE_COMPLETE \
   --query "StackSummaries[?starts_with(StackName, 'amplify-cloudboard')].StackName"
 ```
@@ -121,7 +152,7 @@ aws cloudformation list-stacks --profile cloudboard-dev \
 - **Delete the cloud resources** when you intentionally want to clean up:
 
   ```bash
-  npx ampx sandbox delete --profile cloudboard-dev
+  npx ampx sandbox delete --profile default
   ```
 
   This destroys the sandbox stack and everything in it.
