@@ -1,3 +1,8 @@
+import { Badge } from "@/components/ui/badge";
+import { Card, CardContent } from "@/components/ui/card";
+import { Separator } from "@/components/ui/separator";
+import { cn } from "@/lib/utils";
+
 const projects = [
   { name: "Website redesign", count: 7, active: true },
   { name: "Learn AWS", count: 5, active: false },
@@ -10,113 +15,118 @@ type Task = {
   due?: string;
 };
 
-const columns: { name: string; dot: string; tasks: Task[] }[] = [
-  {
-    name: "To do",
-    dot: "bg-neutral-400",
-    tasks: [
-      { title: "Draft pricing page copy", tag: "Content", due: "Fri" },
-      { title: "Collect feedback from beta users", tag: "Research" },
-      { title: "Pick an icon set", tag: "Design", due: "Mon" },
-    ],
-  },
-  {
-    name: "In progress",
-    dot: "bg-sky-500",
-    tasks: [
-      { title: "Build the new navigation", tag: "Frontend", due: "Today" },
-      { title: "Write release notes", tag: "Content" },
-    ],
-  },
-  {
-    name: "Done",
-    dot: "bg-emerald-500",
-    tasks: [
-      { title: "Set up hosting", tag: "Infra" },
-      { title: "Choose a color palette", tag: "Design" },
-    ],
-  },
-];
+const columns: { name: string; dot: string; done?: boolean; tasks: Task[] }[] =
+  [
+    {
+      name: "To do",
+      dot: "bg-muted-foreground",
+      tasks: [
+        { title: "Draft pricing page copy", tag: "Content", due: "Fri" },
+        { title: "Collect feedback from beta users", tag: "Research" },
+        { title: "Pick an icon set", tag: "Design", due: "Mon" },
+      ],
+    },
+    {
+      name: "In progress",
+      dot: "bg-primary",
+      tasks: [
+        { title: "Build the new navigation", tag: "Frontend", due: "Today" },
+        { title: "Write release notes", tag: "Content" },
+      ],
+    },
+    {
+      name: "Done",
+      dot: "bg-emerald-500",
+      done: true,
+      tasks: [
+        { title: "Set up hosting", tag: "Infra" },
+        { title: "Choose a color palette", tag: "Design" },
+      ],
+    },
+  ];
 
 export function BoardPreview() {
   return (
-    <div
+    <Card
       role="img"
       aria-label="Preview of a CloudBoard project board with To do, In progress and Done columns"
-      className="overflow-hidden rounded-2xl border border-neutral-200 bg-background text-left shadow-2xl shadow-sky-900/10 dark:border-neutral-800 dark:shadow-black/40"
+      className="gap-0 rounded-2xl py-0 text-left shadow-2xl shadow-primary/10 dark:shadow-black/40"
     >
-      <div className="flex items-center gap-2 border-b border-neutral-200 px-4 py-3 dark:border-neutral-800">
-        <span className="size-3 rounded-full bg-neutral-200 dark:bg-neutral-800" />
-        <span className="size-3 rounded-full bg-neutral-200 dark:bg-neutral-800" />
-        <span className="size-3 rounded-full bg-neutral-200 dark:bg-neutral-800" />
-        <span className="ml-3 font-mono text-xs text-neutral-500">Preview</span>
+      <div className="flex items-center gap-2 px-4 py-3">
+        <span className="size-3 rounded-full bg-muted" />
+        <span className="size-3 rounded-full bg-muted" />
+        <span className="size-3 rounded-full bg-muted" />
+        <span className="ml-3 font-mono text-xs text-muted-foreground">
+          Preview
+        </span>
       </div>
+      <Separator />
 
       <div className="flex">
-        <aside className="hidden w-56 shrink-0 border-r border-neutral-200 p-4 md:block dark:border-neutral-800">
-          <p className="px-2 text-xs font-medium tracking-wide text-neutral-500 uppercase">
+        <aside className="hidden w-56 shrink-0 p-4 md:block">
+          <p className="px-2 text-xs font-medium tracking-wide text-muted-foreground uppercase">
             Projects
           </p>
           <ul className="mt-3 space-y-1">
             {projects.map((project) => (
               <li
                 key={project.name}
-                className={`flex items-center justify-between rounded-md px-2 py-1.5 text-sm ${
+                className={cn(
+                  "flex items-center justify-between rounded-md px-2 py-1.5",
                   project.active
-                    ? "bg-sky-50 font-medium text-sky-700 dark:bg-sky-500/10 dark:text-sky-300"
-                    : "text-neutral-600 dark:text-neutral-400"
-                }`}
+                    ? "bg-primary/10 font-medium text-primary"
+                    : "text-muted-foreground",
+                )}
               >
                 {project.name}
-                <span className="text-xs text-neutral-400">
+                <span className="text-xs text-muted-foreground">
                   {project.count}
                 </span>
               </li>
             ))}
           </ul>
         </aside>
+        <Separator orientation="vertical" className="hidden md:block" />
 
-        <div className="flex-1 bg-neutral-50 p-4 sm:p-6 dark:bg-neutral-900/50">
+        <div className="flex-1 bg-muted/40 p-4 sm:p-6">
           <p className="font-medium">Website redesign</p>
-          <p className="mt-0.5 text-xs text-neutral-500">7 tasks · 2 done</p>
+          <p className="mt-0.5 text-xs text-muted-foreground">
+            7 tasks · 2 done
+          </p>
           <div className="mt-4 grid gap-4 sm:grid-cols-3">
             {columns.map((column, index) => (
               <div
                 key={column.name}
                 className={index > 0 ? "hidden sm:block" : undefined}
               >
-                <p className="flex items-center gap-2 text-xs font-medium text-neutral-600 dark:text-neutral-400">
-                  <span className={`size-2 rounded-full ${column.dot}`} />
+                <p className="flex items-center gap-2 text-xs font-medium text-muted-foreground">
+                  <span className={cn("size-2 rounded-full", column.dot)} />
                   {column.name}
-                  <span className="text-neutral-400">
-                    {column.tasks.length}
-                  </span>
+                  <span className="opacity-70">{column.tasks.length}</span>
                 </p>
                 <ul className="mt-3 space-y-2">
                   {column.tasks.map((task) => (
-                    <li
-                      key={task.title}
-                      className="rounded-lg border border-neutral-200 bg-background p-3 shadow-xs dark:border-neutral-800"
-                    >
-                      <p
-                        className={`text-sm ${
-                          column.name === "Done"
-                            ? "text-neutral-400 line-through"
-                            : ""
-                        }`}
-                      >
-                        {task.title}
-                      </p>
-                      <div className="mt-2 flex items-center justify-between gap-2">
-                        <span className="rounded bg-neutral-100 px-1.5 py-0.5 text-[11px] text-neutral-600 dark:bg-neutral-800 dark:text-neutral-400">
-                          {task.tag}
-                        </span>
-                        {task.due && (
-                          <span className="font-mono text-[11px] text-neutral-500">
-                            {task.due}
-                          </span>
-                        )}
-                      </div>
+                    <li key={task.title}>
+                      <Card size="sm">
+                        <CardContent>
+                          <p
+                            className={cn(
+                              column.done &&
+                                "text-muted-foreground line-through",
+                            )}
+                          >
+                            {task.title}
+                          </p>
+                          <div className="mt-2 flex items-center justify-between gap-2">
+                            <Badge variant="secondary">{task.tag}</Badge>
+                            {task.due && (
+                              <span className="font-mono text-[11px] text-muted-foreground">
+                                {task.due}
+                              </span>
+                            )}
+                          </div>
+                        </CardContent>
+                      </Card>
                     </li>
                   ))}
                 </ul>
@@ -125,6 +135,6 @@ export function BoardPreview() {
           </div>
         </div>
       </div>
-    </div>
+    </Card>
   );
 }
