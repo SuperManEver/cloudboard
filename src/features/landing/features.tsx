@@ -18,11 +18,10 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 
-type Status = "Live" | "Next" | "Phase 3";
+type Status = "Live" | "Phase 3";
 
 const statusVariant: Record<Status, ComponentProps<typeof Badge>["variant"]> = {
   Live: "default",
-  Next: "secondary",
   "Phase 3": "outline",
 };
 
@@ -49,10 +48,10 @@ const features: Feature[] = [
     icon: SquareCheck,
   },
   {
-    title: "Sign in with Google",
+    title: "Sign in with Google or email",
     description:
-      "One click to get started. Accounts are handled by Amazon Cognito, with no new password to remember.",
-    status: "Next",
+      "Continue with your Google account in one click, or use an email and password. Accounts are handled by Amazon Cognito.",
+    status: "Live",
     icon: User,
   },
   {
