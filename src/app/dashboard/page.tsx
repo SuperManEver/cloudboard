@@ -1,48 +1,55 @@
+import { Plus } from "lucide-react";
 import type { Metadata } from "next";
-import Link from "next/link";
 
-import {
-  Card,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
-import { Logo } from "@/components/ui/logo";
-import { Separator } from "@/components/ui/separator";
-import { SignOutButton } from "@/features/auth/components/sign-out-button";
-import { getSignedInEmail } from "@/lib/amplify-server";
+import { Button } from "@/components/ui/button";
+import { createProject } from "@/features/projects/actions";
+import { ProjectFormDialog } from "@/features/projects/components/project-form-dialog";
+import { ProjectList } from "@/features/projects/components/project-list";
+import { cookiesClient, unwrap } from "@/lib/amplify-server";
 
 export const metadata: Metadata = {
-  title: "Dashboard · CloudBoard",
+  title: "Projects · CloudBoard",
 };
 
-/** Protected by middleware. Projects and tasks arrive in Phase 3. */
 export default async function DashboardPage() {
-  const email = await getSignedInEmail();
+  // Owner rules mean this only returns the signed-in user's projects.
+  // One page (up to 100 projects); there's no pagination UI yet.
+  const projects = unwrap(
+    await cookiesClient.models.Project.list({
+      selectionSet: ["id", "name", "tasks.id"],
+    }),
+  );
+
+  const summaries = projects
+    .map((project) => ({
+      id: project.id,
+      name: project.name,
+      taskCount: project.tasks.length,
+    }))
+    .sort((a, b) => a.name.localeCompare(b.name));
+
+  const newProjectDialog = (
+    <ProjectFormDialog
+      trigger={
+        <Button>
+          <Plus data-icon="inline-start" />
+          New project
+        </Button>
+      }
+      title="New project"
+      description="Give your project a name. You can change it later."
+      submitLabel="Create project"
+      action={createProject}
+    />
+  );
 
   return (
-    <div className="min-h-svh bg-muted/40">
-      <header className="bg-background">
-        <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-4">
-          <Link href="/" aria-label="CloudBoard home">
-            <Logo />
-          </Link>
-          <SignOutButton />
-        </div>
-        <Separator />
-      </header>
-
-      <main className="mx-auto max-w-6xl px-6 py-12">
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-xl">You&apos;re signed in</CardTitle>
-            <CardDescription>
-              {email ? <>Signed in as {email}. </> : null}
-              Projects and tasks are coming in the next phase.
-            </CardDescription>
-          </CardHeader>
-        </Card>
-      </main>
+    <div className="space-y-6">
+      <div className="flex items-center justify-between gap-4">
+        <h1 className="text-2xl font-semibold tracking-tight">Projects</h1>
+        {summaries.length > 0 && newProjectDialog}
+      </div>
+      <ProjectList projects={summaries} emptyAction={newProjectDialog} />
     </div>
   );
 }

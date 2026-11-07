@@ -21,6 +21,8 @@ const eslintConfig = [
       "out/**",
       "build/**",
       "next-env.d.ts",
+      // Amplify sandbox build output (bundled CDK assets).
+      ".amplify/**",
     ],
   },
 ];

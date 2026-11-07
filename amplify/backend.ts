@@ -1,13 +1,13 @@
 import { defineBackend } from "@aws-amplify/backend";
 import { auth } from "./auth/resource";
+import { data } from "./data/resource";
 
 /**
  * @see https://docs.amplify.aws/nextjs/build-a-backend/ to add storage, functions, and more
- *
- * `data` (./data/resource.ts) is registered once the first model is defined.
  */
 const backend = defineBackend({
   auth,
+  data,
 });
 
 // No guest (unauthenticated) AWS credentials from the identity pool.
