@@ -2,7 +2,7 @@
 
 CloudBoard is an app for managing personal projects and tasks. It's a learning project, but it's structured like production SaaS. The main goal is hands-on experience with AWS: Amplify Gen 2, Cognito, DynamoDB, Lambda, API Gateway, and infrastructure as code with TypeScript and CDK.
 
-The app is built in phases. **Phase 2 (current)** adds authentication with Amazon Cognito: email/password and Google sign-in, sign-out, and a protected dashboard. There is no application data yet.
+The app is built in phases. **Phase 3 (current)** adds the first application data: signed-in users create projects and manage each project's tasks on a To do / In progress / Done board. Data lives in DynamoDB behind an AppSync GraphQL API (Amplify Data), and each user only sees their own records. Authentication (email/password and Google via Amazon Cognito) came in Phase 2.
 
 ## Tech stack
 
@@ -13,6 +13,7 @@ The app is built in phases. **Phase 2 (current)** adds authentication with Amazo
 | Styling  | Tailwind CSS 4, shadcn/ui (Radix, Lucide icons)        |
 | Backend  | AWS Amplify Gen 2 (TypeScript, built on AWS CDK)       |
 | Auth     | Amazon Cognito (email/password, Google federation)     |
+| Data     | Amplify Data: AWS AppSync (GraphQL) + Amazon DynamoDB  |
 | Linting  | ESLint 9 (`eslint-config-next`)                        |
 | Format   | Prettier 3 (default options)                           |
 
@@ -89,18 +90,18 @@ npm run build         # production build
 .
 ├── amplify/                 # Amplify Gen 2 backend (TypeScript / CDK)
 │   ├── auth/resource.ts     # Cognito: email/password + Google, OAuth redirect URLs
-│   ├── data/resource.ts     # Placeholder: no data models yet
+│   ├── data/resource.ts     # Data schema: Project and Task models, owner auth
 │   ├── backend.ts           # Backend entry point: registers resources
 │   ├── package.json         # Marks the backend as an ES module
 │   └── tsconfig.json
 ├── src/
 │   ├── app/                 # App Router routes
 │   │   ├── (auth)/          # /sign-in, /sign-up, /oauth/callback
-│   │   ├── dashboard/       # Protected page
+│   │   ├── dashboard/       # Protected: project list, projects/[projectId] board
 │   │   └── page.tsx         # Landing page
 │   ├── components/ui/       # shadcn/ui and other feature-agnostic UI components
-│   ├── features/            # Feature modules (landing, auth, ...)
-│   ├── lib/                 # Amplify client and server configuration, utils
+│   ├── features/            # Feature modules: landing, auth, projects, tasks
+│   ├── lib/                 # Amplify client/server configuration, data client, utils
 │   ├── middleware.ts        # Route protection
 │   └── types/               # Shared TypeScript types
 ├── .nvmrc                   # Node.js 24
@@ -118,7 +119,6 @@ Conventions:
 ### Backend
 
 - **Auth:** `amplify/auth/resource.ts` sets up a Cognito user pool with email/password sign-in and Google as a federated identity provider. The Google client ID and secret are Amplify secrets (see [Google sign-in setup](#google-sign-in-setup)). Guest (unauthenticated) identities in the Cognito identity pool are disabled in `backend.ts`.
-- **Data:** the initializer's sample `Todo` model let any unauthenticated user create, read, update and delete records, so it was removed. `defineData` needs at least one model, so `data` isn't registered in `backend.ts` yet. The real models will come with owner-based authorization.
 
 ### Frontend
 
@@ -133,6 +133,40 @@ Conventions:
 - **Sign-out** clears the session (and the Cognito domain session for Google users) and returns to `/`.
 
 Google users appear in the user pool as `google_<id>` with status `EXTERNAL_PROVIDER`. Cognito doesn't link accounts automatically: signing up with email/password using the same address as a Google account creates a second, separate user.
+
+## Data
+
+### Models
+
+`amplify/data/resource.ts` defines the schema. Amplify turns it into an AppSync GraphQL API with one DynamoDB table per model (on-demand capacity).
+
+| Model     | Fields                                                                                                      |
+| --------- | ----------------------------------------------------------------------------------------------------------- |
+| `Project` | `name`, `tasks` (has many `Task`)                                                                           |
+| `Task`    | `title`, `description?`, `status` (`TODO` / `IN_PROGRESS` / `DONE`), `dueDate?` (`YYYY-MM-DD`), `projectId` |
+
+Amplify also adds `id`, `createdAt`, `updatedAt` and `owner` to every record.
+
+- **Owner authorization:** both models use `allow.owner()`. AppSync stores the creator's Cognito identity in `owner` and rejects reads and writes by anyone else. The `owner` field itself only allows read and delete, so an update can't transfer a record to another user. There are no guest, public or API-key rules.
+- **Relationship and index:** `Project.tasks` / `Task.project` make Amplify create a global secondary index on `Task.projectId`. Loading a project's tasks is a DynamoDB Query on that index, not a full-table Scan.
+- **No cascading deletes:** DynamoDB has no foreign keys. Deleting a project deletes its tasks first, from the app (`src/features/projects/actions.ts`). This isn't atomic; a transactional delete is a topic for the Lambda phase.
+
+### How the app reads and writes
+
+- Reads happen in Server Components and writes in Server Actions (`src/features/*/actions.ts`). There's no client-side data store.
+- Both use `cookiesClient` from `src/lib/amplify-server.ts` (`generateServerClientUsingCookies`). It signs every AppSync request with the user's Cognito tokens from the auth cookies, so the owner rules apply. App code never filters by user.
+- Amplify Data returns GraphQL errors in `errors` instead of throwing. `unwrap()` in the same file turns them into exceptions.
+- Opening another user's project returns an `Unauthorized` error from AppSync, and the page shows a 404.
+- Lists load a single page (up to 100 items). There's no pagination UI yet.
+
+### Inspecting the data
+
+- **DynamoDB console → Tables:** the sandbox's tables are named `Project-<apiId>-NONE` and `Task-<apiId>-NONE`. Items show the `owner` and `projectId` attributes.
+- **AppSync console → your API → Queries:** run GraphQL queries signed in as a Cognito user, and browse the generated schema.
+
+```bash
+aws dynamodb list-tables --profile default
+```
 
 ## Google sign-in setup
 
@@ -210,7 +244,7 @@ aws cloudformation list-stacks --profile default \
 
 - Next.js, TypeScript, Tailwind, ESLint and Prettier setup; Amplify Gen 2 backend scaffold; Amplify Hosting build spec.
 
-### Phase 2 — Google authentication with Amazon Cognito (current)
+### Phase 2 — Google authentication with Amazon Cognito (done)
 
 - Create a Google OAuth client in Google Cloud.
 - Store the client ID and secret as Amplify sandbox secrets (`npx ampx sandbox secret set`), never in the repository.
@@ -218,4 +252,10 @@ aws cloudformation list-stacks --profile default \
 - Configure Amplify on the frontend (`src/lib`) using `amplify_outputs.json` and `@aws-amplify/adapter-nextjs` for server-side auth.
 - Add sign-in and sign-out, and protected routes.
 
-Later phases add project and task data models (DynamoDB via Amplify Data), Lambda functions, and API Gateway.
+### Phase 3 — Projects and tasks with Amplify Data (current)
+
+- `Project` and `Task` models in DynamoDB via Amplify Data (AppSync), with owner-based authorization.
+- Server-side data access from Server Components and Server Actions using the Cognito cookie session.
+- Project list, project board with To do / In progress / Done columns, and create/edit/move/delete for tasks.
+
+Later phases add Lambda functions and API Gateway.
