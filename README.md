@@ -2,7 +2,7 @@
 
 CloudBoard is an app for managing personal projects and tasks. It's a learning project, but it's structured like production SaaS. The main goal is hands-on experience with AWS: Amplify Gen 2, Cognito, DynamoDB, Lambda, API Gateway, and infrastructure as code with TypeScript and CDK.
 
-The app is built in phases. **Phase 1 (current)** sets up the foundation only: no authentication flows and no application data yet.
+The app is built in phases. **Phase 2 (current)** adds authentication with Amazon Cognito: email/password and Google sign-in, sign-out, and a protected dashboard. There is no application data yet.
 
 ## Tech stack
 
@@ -10,8 +10,9 @@ The app is built in phases. **Phase 1 (current)** sets up the foundation only: n
 | -------- | ------------------------------------------------------ |
 | Runtime  | Node.js 24 (via NVM), npm                              |
 | Frontend | Next.js 15 (App Router), React 19, TypeScript (strict) |
-| Styling  | Tailwind CSS 4                                         |
+| Styling  | Tailwind CSS 4, shadcn/ui (Radix, Lucide icons)        |
 | Backend  | AWS Amplify Gen 2 (TypeScript, built on AWS CDK)       |
+| Auth     | Amazon Cognito (email/password, Google federation)     |
 | Linting  | ESLint 9 (`eslint-config-next`)                        |
 | Format   | Prettier 3 (default options)                           |
 
@@ -39,7 +40,7 @@ npm install
 npm run dev
 ```
 
-Open http://localhost:3000. The frontend runs locally without AWS until it needs backend resources (Phase 2 onwards).
+Open http://localhost:3000. The frontend runs locally, but auth talks to the Cognito user pool in your [cloud sandbox](#cloud-sandbox). The app reads that sandbox's IDs from `amplify_outputs.json`, so deploy the sandbox once before the first `npm run dev`. `npm run build` and `npm run typecheck` also need the file.
 
 ### Day-to-day workflow
 
@@ -87,16 +88,20 @@ npm run build         # production build
 ```text
 .
 ├── amplify/                 # Amplify Gen 2 backend (TypeScript / CDK)
-│   ├── auth/resource.ts     # Cognito user pool (default email sign-in scaffold)
+│   ├── auth/resource.ts     # Cognito: email/password + Google, OAuth redirect URLs
 │   ├── data/resource.ts     # Placeholder: no data models yet
 │   ├── backend.ts           # Backend entry point: registers resources
 │   ├── package.json         # Marks the backend as an ES module
 │   └── tsconfig.json
 ├── src/
-│   ├── app/                 # App Router: layout.tsx, page.tsx, globals.css
-│   ├── components/ui/       # Reusable, feature-agnostic UI components
-│   ├── features/            # Feature modules (auth, projects, tasks, ...)
-│   ├── lib/                 # Non-UI code, e.g. Amplify client configuration
+│   ├── app/                 # App Router routes
+│   │   ├── (auth)/          # /sign-in, /sign-up, /oauth/callback
+│   │   ├── dashboard/       # Protected page
+│   │   └── page.tsx         # Landing page
+│   ├── components/ui/       # shadcn/ui and other feature-agnostic UI components
+│   ├── features/            # Feature modules (landing, auth, ...)
+│   ├── lib/                 # Amplify client and server configuration, utils
+│   ├── middleware.ts        # Route protection
 │   └── types/               # Shared TypeScript types
 ├── .nvmrc                   # Node.js 24
 └── package.json
@@ -106,11 +111,53 @@ Conventions:
 
 - Server Components by default. Add `"use client"` only when a component needs interactivity or browser APIs.
 - AWS/Amplify configuration goes in `src/lib`, never inside UI components.
+- UI components come from shadcn/ui (`npx shadcn@latest add <name>`), not hand-written equivalents.
 
-### Amplify backend in Phase 1
+## Authentication
 
-- **Auth:** `defineAuth` with the default email login. This is scaffolding only: no sign-in UI and no custom configuration. Guest (unauthenticated) identities in the Cognito identity pool are disabled in `backend.ts`.
+### Backend
+
+- **Auth:** `amplify/auth/resource.ts` sets up a Cognito user pool with email/password sign-in and Google as a federated identity provider. The Google client ID and secret are Amplify secrets (see [Google sign-in setup](#google-sign-in-setup)). Guest (unauthenticated) identities in the Cognito identity pool are disabled in `backend.ts`.
 - **Data:** the initializer's sample `Todo` model let any unauthenticated user create, read, update and delete records, so it was removed. `defineData` needs at least one model, so `data` isn't registered in `backend.ts` yet. The real models will come with owner-based authorization.
+
+### Frontend
+
+- `src/lib/amplify-client.ts` configures Amplify in the browser with `ssr: true`, so tokens are stored in cookies. Client Components that call Amplify import it for its side effect.
+- `src/lib/amplify-server.ts` reads the session on the server (middleware, Server Components) through `@aws-amplify/adapter-nextjs`.
+- `src/middleware.ts` sends signed-out users from `/dashboard` to `/sign-in`, and signed-in users from `/sign-in` and `/sign-up` to `/dashboard`.
+
+### Flows
+
+- **Email/password:** `/sign-up` → Cognito emails a confirmation code → enter it → signed in and sent to `/dashboard`.
+- **Google:** the app redirects to the Cognito domain, Cognito redirects to Google, and Google returns to Cognito at `https://<cognito-domain>/oauth2/idpresponse`. Cognito exchanges Google's code for its own tokens and redirects to `/oauth/callback`, which finishes sign-in and opens `/dashboard`. The app only ever receives Cognito tokens.
+- **Sign-out** clears the session (and the Cognito domain session for Google users) and returns to `/`.
+
+Google users appear in the user pool as `google_<id>` with status `EXTERNAL_PROVIDER`. Cognito doesn't link accounts automatically: signing up with email/password using the same address as a Google account creates a second, separate user.
+
+## Google sign-in setup
+
+One-time setup per environment. The sandbox deploy fails until both secrets exist.
+
+1. **Consent screen.** In Google Cloud console → Google Auth Platform, click **Get started**. Choose audience **External**. While the app's publishing status is "Testing", only accounts listed under **Audience → Test users** can sign in, so add yourself there.
+2. **OAuth client.** Under **Clients → Create client**, choose **Web application**. Add `http://localhost:3000` as an authorized JavaScript origin. Copy the client secret when the client is created, because Google shows it only once.
+3. **Secrets.** Each command prompts for the value. The ID ends in `.apps.googleusercontent.com`, and the secret starts with `GOCSPX-`. If the two are swapped, Google answers `Error 401: invalid_client`.
+
+   ```bash
+   npx ampx sandbox secret set GOOGLE_CLIENT_ID --profile default
+   npx ampx sandbox secret set GOOGLE_CLIENT_SECRET --profile default
+   npx ampx sandbox secret list --profile default   # names only
+   ```
+
+   Secrets are stored in SSM Parameter Store and read only at deploy time, so redeploy the sandbox after changing them.
+
+4. **Deploy** the sandbox, then copy the Cognito domain from `auth.oauth.domain` in `amplify_outputs.json`.
+5. **Redirect URI.** Add `https://<cognito-domain>/oauth2/idpresponse` to the Google client's authorized redirect URIs. If Google rejects the domain, add `amazoncognito.com` under **Branding → Authorized domains**.
+
+**Deployed branches** (Amplify Hosting) use their own Cognito user pool:
+
+- Set `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET` in Amplify console → Hosting → Secrets.
+- Add that pool's `/oauth2/idpresponse` URL to the Google client.
+- Any new app origin (branch domain, custom domain) must be added to `appOrigins` in `amplify/auth/resource.ts` and to the client's JavaScript origins.
 
 ## AWS profile
 
@@ -136,7 +183,7 @@ The first deployment to an account/region may ask you to bootstrap CDK. The CLI 
 npx ampx sandbox --profile default
 ```
 
-This deploys a per-developer stack (`amplify-cloudboard-<user>-sandbox-<hash>`), watches `amplify/` for changes and redeploys them, and writes `amplify_outputs.json` to the project root. That file is git-ignored. The frontend reads it from Phase 2 onwards.
+This deploys a per-developer stack (`amplify-cloudboard-<user>-sandbox-<hash>`), watches `amplify/` for changes and redeploys them, and writes `amplify_outputs.json` to the project root. That file is git-ignored, and the frontend reads it. Add `--once` to deploy a single time and exit without watching.
 
 Verify the stack:
 
@@ -159,7 +206,11 @@ aws cloudformation list-stacks --profile default \
 
 ## Roadmap
 
-### Phase 2 — Google authentication with Amazon Cognito
+### Phase 1 — Foundation (done)
+
+- Next.js, TypeScript, Tailwind, ESLint and Prettier setup; Amplify Gen 2 backend scaffold; Amplify Hosting build spec.
+
+### Phase 2 — Google authentication with Amazon Cognito (current)
 
 - Create a Google OAuth client in Google Cloud.
 - Store the client ID and secret as Amplify sandbox secrets (`npx ampx sandbox secret set`), never in the repository.
